@@ -2,9 +2,8 @@ name: G2G Fiyat Tarayıcı ve Discord Bildirici
 
 on:
   schedule:
-    # UTC saatiyle her 3 saatte bir otomatik çalışır
     - cron: '0 */3 * * *'
-  workflow_dispatch: # İstediğin zaman GitHub paneli üzerinden elle başlatma butonu sunar
+  workflow_dispatch:
 
 jobs:
   scrape_and_notify:
@@ -19,10 +18,8 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Chrome Kur (Hızlı Setup)
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: 'stable'
+      # Chrome & Chromium Kur adımı tamamen kaldırıldı! 
+      # GitHub Actions ubuntu-latest imajında Chrome varsayılan olarak yüklüdür.
 
       - name: Python Bağımlılıklarını Yükle
         run: |
