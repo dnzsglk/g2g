@@ -33,7 +33,7 @@ def send_discord_notification(results_summary, usd_rate, file_path):
         "fields": [
             {
                 "name": "💵 Anlık USD Kuru",
-                "value": f"1 USD = **{usd_rate:.4f} TL**",
+                "value": f"1 USD = **{usd_rate:.3f} TL**",
                 "inline": True
             },
             {
@@ -105,13 +105,11 @@ if not valid_jobs:
 
 print(f"[+] Toplam {len(valid_jobs)} adet dosya bulundu. Hızlı tarama başlatılıyor...")
 
-# MAKSİMUM HIZ İÇİN OPTİMİZE EDİLMİŞ DRIVER
-# Resim yükleme, ses, GPU ve gereksiz render bileşenleri kapatıldı
 fast_chrome_args = (
     "--no-sandbox,"
     "--disable-dev-shm-usage,"
     "--disable-gpu,"
-    "--blink-settings=imagesEnabled=false,"  # Görselleri yüklemez (Hız kazandırır)
+    "--blink-settings=imagesEnabled=false,"
     "--disable-extensions,"
     "--window-size=1920,1080"
 )
@@ -124,14 +122,13 @@ driver = Driver(
     chromium_arg=fast_chrome_args
 )
 
-# Sayfa yüklenme zaman aşımını 15 saniyeye düşürüyoruz (Varsayılanı 60sn'dir)
 driver.set_page_load_timeout(15)
 
 results_summary = []
 
 with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
     out_file.write(f"RAPOR OLUŞTURULMA TARİHİ: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-    out_file.write(f"HESAPLAMADA KULLANILAN ANLIK USD KURU: 1 USD = {current_usd_rate:.4f} TL\n")
+    out_file.write(f"HESAPLAMADA KULLANILAN ANLIK USD KURU: 1 USD = {current_usd_rate:.3f} TL\n")
     out_file.write("=" * 135 + "\n")
     out_file.write(
         f"{'OYUN':<18} | {'ARANAN SERVER / ÜRÜN (DETAY)':<55} | {'G2G USD':<12} | {'SGV ALIS USD':<14} | {'SGV ALIS TR':<14}\n"
@@ -145,7 +142,6 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
                 start_time = time.time()
                 driver.get(job["url"])
                 
-                # Sabit 6 saniye yerine kısa ve dinamik bekleme
                 time.sleep(2.5)
                 driver.execute_script("window.scrollTo(0, 500);")
                 time.sleep(1)
@@ -182,10 +178,11 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
                     if found_price:
                         sgv_usd = found_price * 0.8
                         sgv_tr = sgv_usd * current_usd_rate
-                        tr_str = f"{sgv_tr:.2f} TL"
+                        # Fiyatları noktadan sonra tam 3 basamağa yuvarlıyoruz (.3f)
+                        tr_str = f"{sgv_tr:.3f} TL"
 
                         out_file.write(
-                            f"{job['name'][:18]:<18} | {server_name[:55]:<55} | {found_price:<12.6f} | {sgv_usd:<14.6f} | {sgv_tr:<14.4f}\n"
+                            f"{job['name'][:18]:<18} | {server_name[:55]:<55} | {found_price:<12.3f} | {sgv_usd:<14.3f} | {sgv_tr:<14.3f}\n"
                         )
                         results_summary.append({
                             "game": job['name'],
