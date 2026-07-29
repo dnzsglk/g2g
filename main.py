@@ -12,24 +12,29 @@ OUTPUT_FILE = "fiyat_raporu.txt"
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 
 def get_live_usd_try_rate():
+    """Anlık USD/TRY kurunu serbest piyasa API üzerinden çeker."""
     try:
         url = "https://open.er-api.com/v6/latest/USD"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=5) as response:
             data = json.loads(response.read().decode())
-            return float(data['rates']['TRY'])
+            rate = float(data['rates']['TRY'])
+            print(f"[+] Anlık Dolar Kuru: 1 USD = {rate:.3f} TL")
+            return rate
     except Exception as e:
         print(f"[!] Canlı kur çekilemedi ({e}). Yedek kur kullanılıyor.")
         return 47.0
 
 def send_discord_notification(results_summary, usd_rate, file_path):
+    """Tarama sonuçlarını Discord kanalına Webhook ile gönderir."""
     if not DISCORD_WEBHOOK_URL:
         print("[!] DISCORD_WEBHOOK_URL bulunamadı, bildirim atlanıyor.")
         return
 
+    # Discord Embed Mesaj Tasarımı
     embed = {
         "title": "🎮 G2G Fiyat Tarama Raporu Bitti!",
-        "color": 3066993,
+        "color": 3066993,  # Yeşil / Mavi tonu
         "fields": [
             {
                 "name": "💵 Anlık USD Kuru",
@@ -48,8 +53,9 @@ def send_discord_notification(results_summary, usd_rate, file_path):
         "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     }
 
+    # Özet Fiyatlar (Discord Kartı)
     summary_text = ""
-    for item in results_summary[:10]:
+    for item in results_summary[:10]:  # İlk 10 sonucu mesaja sığdır
         summary_text += f"• **{item['game']}** ({item['server']}): `{item['tr_price']}`\n"
 
     if summary_text:
@@ -64,6 +70,7 @@ def send_discord_notification(results_summary, usd_rate, file_path):
         "embeds": [embed]
     }
 
+    # Rapor .txt dosyasını Discord mesajına ek olarak gönderme
     try:
         with open(file_path, "rb") as f:
             files = {
@@ -72,7 +79,7 @@ def send_discord_notification(results_summary, usd_rate, file_path):
             }
             res = requests.post(DISCORD_WEBHOOK_URL, files=files)
             if res.status_code in [200, 204]:
-                print("[+] Discord bildirimi başarıyla gönderildi!")
+                print("[+] Discord bildirimi ve rapor dosyası başarıyla gönderildi!")
             else:
                 print(f"[!] Discord bildirim hatası: {res.status_code} - {res.text}")
     except Exception as e:
@@ -105,6 +112,7 @@ if not valid_jobs:
 
 print(f"[+] Toplam {len(valid_jobs)} adet dosya bulundu. Hızlı tarama başlatılıyor...")
 
+# MAKSİMUM HIZ İÇİN OPTİMİZE EDİLMİŞ DRIVER
 fast_chrome_args = (
     "--no-sandbox,"
     "--disable-dev-shm-usage,"
@@ -178,9 +186,11 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
                     if found_price:
                         sgv_usd = found_price * 0.8
                         sgv_tr = sgv_usd * current_usd_rate
-                        # Fiyatları noktadan sonra tam 3 basamağa yuvarlıyoruz (.3f)
+                        
+                        # Discord özetindeki TL değerini tam 3 basamaklı yapıyoruz (.3f)
                         tr_str = f"{sgv_tr:.3f} TL"
 
+                        # .txt rapor dosyasına da tam 3 basamaklı yazıyoruz (.3f)
                         out_file.write(
                             f"{job['name'][:18]:<18} | {server_name[:55]:<55} | {found_price:<12.3f} | {sgv_usd:<14.3f} | {sgv_tr:<14.3f}\n"
                         )
@@ -213,4 +223,5 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
     finally:
         driver.quit()
 
+# Discord bildirimi gönder
 send_discord_notification(results_summary, current_usd_rate, OUTPUT_FILE)
