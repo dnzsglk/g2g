@@ -2,7 +2,8 @@ name: G2G Fiyat Tarayıcı ve Discord Bildirici
 
 on:
   schedule:
-    - cron: '0 */3 * * *'
+    # Her 15 dakikada bir çalışır
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -17,7 +18,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          cache: 'pip' # Paketleri hafızada tutar, her defasında indirmeyi bekletmez
+          cache: 'pip'
 
       - name: Python Bağımlılıklarını Yükle
         run: |
