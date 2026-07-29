@@ -9,33 +9,27 @@ from seleniumbase import Driver
 # --- YAPILANDIRMA ---
 TARGETS_FOLDER = "targets"
 OUTPUT_FILE = "fiyat_raporu.txt"
-# Webhook URL'sini GitHub Secrets üzerinden güvenli şekilde alacağız
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 
 def get_live_usd_try_rate():
-    """Anlık USD/TRY kurunu serbest piyasa API üzerinden çeker."""
     try:
         url = "https://open.er-api.com/v6/latest/USD"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=5) as response:
             data = json.loads(response.read().decode())
-            rate = data['rates']['TRY']
-            print(f"[+] Anlık Dolar Kuru: 1 USD = {rate:.4f} TL")
-            return float(rate)
+            return float(data['rates']['TRY'])
     except Exception as e:
         print(f"[!] Canlı kur çekilemedi ({e}). Yedek kur kullanılıyor.")
         return 47.0
 
 def send_discord_notification(results_summary, usd_rate, file_path):
-    """Tarama sonuçlarını Discord kanalına Webhook ile gönderir."""
     if not DISCORD_WEBHOOK_URL:
         print("[!] DISCORD_WEBHOOK_URL bulunamadı, bildirim atlanıyor.")
         return
 
-    # Discord Embed Mesaj Tasarımı
     embed = {
         "title": "🎮 G2G Fiyat Tarama Raporu Bitti!",
-        "color": 3066993,  # Yeşil / Mavi tonu
+        "color": 3066993,
         "fields": [
             {
                 "name": "💵 Anlık USD Kuru",
@@ -54,9 +48,8 @@ def send_discord_notification(results_summary, usd_rate, file_path):
         "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     }
 
-    # Eğer çok uzun değilse bulunan fiyat özetlerini karta ekle
     summary_text = ""
-    for item in results_summary[:10]: # İlk 10 sonucu mesaja sığdır
+    for item in results_summary[:10]:
         summary_text += f"• **{item['game']}** ({item['server']}): `{item['tr_price']}`\n"
 
     if summary_text:
@@ -71,7 +64,6 @@ def send_discord_notification(results_summary, usd_rate, file_path):
         "embeds": [embed]
     }
 
-    # Rapor .txt dosyasını Discord mesajına ek olarak gönderme
     try:
         with open(file_path, "rb") as f:
             files = {
@@ -80,7 +72,7 @@ def send_discord_notification(results_summary, usd_rate, file_path):
             }
             res = requests.post(DISCORD_WEBHOOK_URL, files=files)
             if res.status_code in [200, 204]:
-                print("[+] Discord bildirimi ve rapor dosyası başarıyla gönderildi!")
+                print("[+] Discord bildirimi başarıyla gönderildi!")
             else:
                 print(f"[!] Discord bildirim hatası: {res.status_code} - {res.text}")
     except Exception as e:
@@ -111,15 +103,29 @@ if not valid_jobs:
     print("[!] Taranacak .txt dosyası bulunamadı.")
     exit()
 
-print(f"[+] Toplam {len(valid_jobs)} adet yapılandırma dosyası bulundu. Tarama başlatılıyor...")
+print(f"[+] Toplam {len(valid_jobs)} adet dosya bulundu. Hızlı tarama başlatılıyor...")
+
+# MAKSİMUM HIZ İÇİN OPTİMİZE EDİLMİŞ DRIVER
+# Resim yükleme, ses, GPU ve gereksiz render bileşenleri kapatıldı
+fast_chrome_args = (
+    "--no-sandbox,"
+    "--disable-dev-shm-usage,"
+    "--disable-gpu,"
+    "--blink-settings=imagesEnabled=false,"  # Görselleri yüklemez (Hız kazandırır)
+    "--disable-extensions,"
+    "--window-size=1920,1080"
+)
 
 driver = Driver(
     browser="chrome",
     headless=True,
     uc=False,
     agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    chromium_arg="--no-sandbox,--disable-dev-shm-usage,--disable-gpu,--window-size=1920,1080"
+    chromium_arg=fast_chrome_args
 )
+
+# Sayfa yüklenme zaman aşımını 15 saniyeye düşürüyoruz (Varsayılanı 60sn'dir)
+driver.set_page_load_timeout(15)
 
 results_summary = []
 
@@ -136,10 +142,13 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
         for job in valid_jobs:
             print(f"[+] '{job['name']}' taranıyor...")
             try:
+                start_time = time.time()
                 driver.get(job["url"])
-                time.sleep(6)
-                driver.execute_script("window.scrollTo(0, 600);")
-                time.sleep(3)
+                
+                # Sabit 6 saniye yerine kısa ve dinamik bekleme
+                time.sleep(2.5)
+                driver.execute_script("window.scrollTo(0, 500);")
+                time.sleep(1)
 
                 js_find_exact_price = """
                     function getPriceForServer(targetName) {
@@ -194,10 +203,12 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
                         })
 
                 out_file.write("-" * 135 + "\n")
+                print(f"[✓] Tamamlandı ({time.time() - start_time:.2f} sn)")
 
             except Exception as e:
                 out_file.write(f"{job['name'][:18]:<18} | Hata oluştu\n")
                 out_file.write("-" * 135 + "\n")
+                print(f"[!] Hata: {e}")
 
         out_file.write("=" * 135 + "\n")
         print("\nTaramalar tamamlandı!")
@@ -205,5 +216,4 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
     finally:
         driver.quit()
 
-# Taramalar bitince Discord'a rapor at
 send_discord_notification(results_summary, current_usd_rate, OUTPUT_FILE)
