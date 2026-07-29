@@ -34,7 +34,7 @@ def send_discord_notification(results_summary, usd_rate, file_path):
     # Discord Embed Mesaj Tasarımı
     embed = {
         "title": "🎮 G2G Fiyat Tarama Raporu Bitti!",
-        "color": 3066993,  # Yeşil / Mavi tonu
+        "color": 3066993,
         "fields": [
             {
                 "name": "💵 Anlık USD Kuru",
@@ -70,7 +70,6 @@ def send_discord_notification(results_summary, usd_rate, file_path):
         "embeds": [embed]
     }
 
-    # Rapor .txt dosyasını Discord mesajına ek olarak gönderme
     try:
         with open(file_path, "rb") as f:
             files = {
@@ -112,7 +111,6 @@ if not valid_jobs:
 
 print(f"[+] Toplam {len(valid_jobs)} adet dosya bulundu. Hızlı tarama başlatılıyor...")
 
-# MAKSİMUM HIZ İÇİN OPTİMİZE EDİLMİŞ DRIVER
 fast_chrome_args = (
     "--no-sandbox,"
     "--disable-dev-shm-usage,"
@@ -183,16 +181,19 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
                 for server_name in target_servers:
                     found_price = driver.execute_script(js_find_exact_price, server_name)
 
-                    if found_price:
-                        sgv_usd = found_price * 0.8
-                        sgv_tr = sgv_usd * current_usd_rate
+                    if found_price is not None:
+                        # Hesaplamaları açık ve net float olarak yapıyoruz
+                        sgv_usd = float(found_price) * 0.8
+                        sgv_tr = float(sgv_usd) * float(current_usd_rate)
                         
-                        # Discord özetindeki TL değerini tam 3 basamaklı yapıyoruz (.3f)
-                        tr_str = f"{sgv_tr:.3f} TL"
+                        # FORMATLAMA: Kesin 3 basamak zorlaması ({:.3f})
+                        tr_str = "{:.3f} TL".format(sgv_tr)
+                        sgv_usd_str = "{:.3f}".format(sgv_usd)
+                        found_price_str = "{:.3f}".format(found_price)
+                        sgv_tr_str = "{:.3f}".format(sgv_tr)
 
-                        # .txt rapor dosyasına da tam 3 basamaklı yazıyoruz (.3f)
                         out_file.write(
-                            f"{job['name'][:18]:<18} | {server_name[:55]:<55} | {found_price:<12.3f} | {sgv_usd:<14.3f} | {sgv_tr:<14.3f}\n"
+                            f"{job['name'][:18]:<18} | {server_name[:55]:<55} | {found_price_str:<12} | {sgv_usd_str:<14} | {sgv_tr_str:<14}\n"
                         )
                         results_summary.append({
                             "game": job['name'],
@@ -223,5 +224,4 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
     finally:
         driver.quit()
 
-# Discord bildirimi gönder
 send_discord_notification(results_summary, current_usd_rate, OUTPUT_FILE)
