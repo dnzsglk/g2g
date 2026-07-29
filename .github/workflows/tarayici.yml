@@ -13,13 +13,11 @@ jobs:
       - name: Repoyu Kopyala
         uses: actions/checkout@v3
 
-      - name: Python Kur
+      - name: Python Kur ve Pip Önbelleğini (Cache) Aç
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
-      # Chrome & Chromium Kur adımı tamamen kaldırıldı! 
-      # GitHub Actions ubuntu-latest imajında Chrome varsayılan olarak yüklüdür.
+          cache: 'pip' # Paketleri hafızada tutar, her defasında indirmeyi bekletmez
 
       - name: Python Bağımlılıklarını Yükle
         run: |
