@@ -4,7 +4,6 @@ import urllib.request
 import pandas as pd
 import json
 import time
-import re
 import os
 
 # --- SAYFA YAPILANDIRMASI ---
@@ -13,7 +12,6 @@ st.set_page_config(
     page_icon="🎮",
     layout="wide"
 )
-
 
 # --- CANLI KUR ÇEKME ---
 @st.cache_data(ttl=600)  # Kuru 10 dakikada bir günceller
@@ -27,15 +25,14 @@ def get_live_usd_try_rate():
     except Exception:
         return 47.0
 
-
 # --- FİYAT TARAMA FONKSİYONU ---
 def run_scraper(target_jobs, usd_rate):
     results = []
-
-    # Streamlit ortamında headless modda driver başlatma
+    
+    # Streamlit Cloud (Linux) ortamına uyumlu Chromium ayarları
     driver = Driver(
-        uc=True,
-        headless=True,
+        uc=True, 
+        headless=True, 
         agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         window_size="1920,1080"
     )
@@ -50,8 +47,8 @@ def run_scraper(target_jobs, usd_rate):
             url = job["url"]
             servers = job["servers"] if job["servers"] else ["Genel"]
 
-            status_text.text(f"⏳ Taranıyor ({idx + 1}/{total_jobs}): {game_name}")
-
+            status_text.text(f"⏳ Taranıyor ({idx+1}/{total_jobs}): {game_name}")
+            
             try:
                 driver.get(url)
                 time.sleep(6)
@@ -62,7 +59,7 @@ def run_scraper(target_jobs, usd_rate):
                     function getPriceForServer(targetName) {
                         var allElements = document.querySelectorAll('div, li, tr, article');
                         var matchedPrices = [];
-
+                        
                         allElements.forEach(function(el) {
                             if (el.innerText && el.innerText.toLowerCase().includes(targetName.toLowerCase())) {
                                 var match = el.innerText.match(/(\\d[\\d\\.,]*)\\s*USD/);
@@ -77,7 +74,7 @@ def run_scraper(target_jobs, usd_rate):
                                 }
                             }
                         });
-
+                        
                         if (matchedPrices.length > 0) {
                             matchedPrices.sort(function(a, b) { return a.length - b.length; });
                             return matchedPrices[0].price;
@@ -127,7 +124,6 @@ def run_scraper(target_jobs, usd_rate):
     finally:
         driver.quit()
 
-
 # --- ARAYÜZ (STREAMLIT) ---
 st.title("🎮 G2G Otomatik Fiyat Tarayıcı Panel")
 st.caption("Pazar yeri ilanlarını anlık canlı kur üzerinden hesaplar.")
@@ -146,8 +142,8 @@ st.divider()
 # Yan Menü / Dosya Yükleme Alanı
 st.sidebar.header("📁 Yapılandırma Dosyaları")
 uploaded_files = st.sidebar.file_uploader(
-    "Taranacak .txt dosyalarını seçin veya sürükleyin",
-    type=["txt"],
+    "Taranacak .txt dosyalarını seçin veya sürükleyin", 
+    type=["txt"], 
     accept_multiple_files=True
 )
 
@@ -183,7 +179,7 @@ if st.button("🚀 Fiyat Taramasını Başlat", type="primary", use_container_wi
             st.subheader("📊 Fiyat Raporu")
             st.dataframe(df, use_container_width=True)
 
-            # İndirme Butonu (CSV / Excel)
+            # İndirme Butonu (CSV)
             csv_data = df.to_csv(index=False).encode('utf-8-sig')
             st.download_button(
                 label="📥 Raporu CSV Olarak İndir",
